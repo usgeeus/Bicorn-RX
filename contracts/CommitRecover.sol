@@ -3,6 +3,7 @@
 pragma solidity ^0.8.19;
 
 import "./libraries/Pietrzak_VDF.sol";
+//import ownable
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -120,10 +121,11 @@ contract CommitRecover is Ownable {
      * @notice check period, update stage if needed, revert if not currently at commit stage
      */
     function commit(
-        uint256 _commit
+        uint256 _commit,
+        address _userAddress
     ) public shouldBeLessThanN(_commit) onlyOwner {
         require(
-            !userInfosAtRound[msg.sender][round].committed,
+            !userInfosAtRound[_userAddress][round].committed,
             "AlreadyCommitted"
         );
         checkStage();
@@ -134,16 +136,20 @@ contract CommitRecover is Ownable {
             _commitsString,
             Pietrzak_VDF.toString(_commit)
         );
-        userInfosAtRound[msg.sender][round] = UserAtRound(_count, true, false);
+        userInfosAtRound[_userAddress][round] = UserAtRound(
+            _count,
+            true,
+            false
+        );
         commitRevealValues[round][_count] = CommitRevealValue(
             _commit,
             0,
-            msg.sender
+            _userAddress
         ); //index starts from 0, so _count -1
         commitsString = _commitsString;
         count = ++_count;
         emit CommitC(
-            msg.sender,
+            _userAddress,
             _commit,
             _commitsString,
             _count,
@@ -164,9 +170,12 @@ contract CommitRecover is Ownable {
      * @notice if count == 0, update valuesAtRound, stage
      * @notice update userInfosAtRound
      */
-    function reveal(uint256 _a) public shouldBeLessThanN(_a) {
+    function reveal(
+        uint256 _a,
+        address _userAddress
+    ) public shouldBeLessThanN(_a) {
         uint256 _round = round;
-        UserAtRound memory _user = userInfosAtRound[msg.sender][_round];
+        UserAtRound memory _user = userInfosAtRound[_userAddress][_round];
         require(_user.committed, "NotCommittedParticipant");
         require(!_user.revealed, "AlreadyRevealed");
         require(
@@ -185,8 +194,8 @@ contract CommitRecover is Ownable {
             stage = Stages.Finished;
             valuesAtRound[_round].isAllRevealed = true;
         }
-        userInfosAtRound[msg.sender][_round].revealed = true;
-        emit RevealA(msg.sender, _a, _count, block.timestamp);
+        userInfosAtRound[_userAddress][_round].revealed = true;
+        emit RevealA(_userAddress, _a, _count, block.timestamp);
     }
 
     function calculateOmega() public returns (uint256) {
@@ -289,6 +298,7 @@ contract CommitRecover is Ownable {
         uint256 _commitDuration,
         uint256 _commitRevealDuration,
         uint256 _n,
+        address _userAddress,
         Pietrzak_VDF.VDFClaim[] memory _proofs
     ) public {
         require(_proofs[0].x < _n, "GreaterOrEqualThanN");
@@ -311,7 +321,7 @@ contract CommitRecover is Ownable {
         count = 0;
         commitsString = "";
         emit Start(
-            msg.sender,
+            _userAddress,
             block.timestamp,
             _commitDuration,
             _commitRevealDuration,
