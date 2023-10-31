@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/usgeeus/Bicorn-RX#readme",
   "devDependencies": {
-    "@openzeppelin/contracts": "^5.0.0"
+    "@openzeppelin/contracts": "^4.9.3"
   }
 }
