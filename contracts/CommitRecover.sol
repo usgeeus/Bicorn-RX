@@ -3,6 +3,7 @@
 pragma solidity ^0.8.19;
 
 import "./libraries/Pietrzak_VDF.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title Bicorn-RX Commit-Reveal-Recover
@@ -13,7 +14,7 @@ import "./libraries/Pietrzak_VDF.sol";
  *    3. Finished: Calculate or recover the random number
  *    4. go to 1
  */
-contract CommitRecover {
+contract CommitRecover is Ownable {
     /* Type declaration */
     /**
      * @notice Stages of the contract
@@ -55,9 +56,11 @@ contract CommitRecover {
     string public commitsString; //concatenated string of commits
     Stages public stage;
     //bool public isHAndBStarSet;
-    mapping(uint256 round => mapping(uint256 index => CommitRevealValue)) public commitRevealValues; //
+    mapping(uint256 round => mapping(uint256 index => CommitRevealValue))
+        public commitRevealValues; //
     mapping(uint256 round => ValueAtRound omega) public valuesAtRound; // 1 => ValueAtRound(omega, isCompleted, ...), 2 => ValueAtRound(omega, isCompleted, ...), ...
-    mapping(address owner => mapping(uint256 round => UserAtRound user)) public userInfosAtRound;
+    mapping(address owner => mapping(uint256 round => UserAtRound user))
+        public userInfosAtRound;
 
     /* Events */
     event CommitC(
@@ -67,7 +70,12 @@ contract CommitRecover {
         uint256 commitCount,
         uint256 commitTimestamp
     );
-    event RevealA(address participant, uint256 a, uint256 revealLeftCount, uint256 revealTimestamp);
+    event RevealA(
+        address participant,
+        uint256 a,
+        uint256 revealLeftCount,
+        uint256 revealTimestamp
+    );
     event Recovered(
         address msgSender,
         uint256 recov,
@@ -111,18 +119,36 @@ contract CommitRecover {
      * @notice The participant can only commit once
      * @notice check period, update stage if needed, revert if not currently at commit stage
      */
-    function commit(uint256 _commit) public shouldBeLessThanN(_commit) {
-        require(!userInfosAtRound[msg.sender][round].committed, "AlreadyCommitted");
+    function commit(
+        uint256 _commit
+    ) public shouldBeLessThanN(_commit) onlyOwner {
+        require(
+            !userInfosAtRound[msg.sender][round].committed,
+            "AlreadyCommitted"
+        );
         checkStage();
         equalStage(Stages.Commit);
         uint256 _count = count;
         string memory _commitsString = commitsString;
-        _commitsString = string.concat(_commitsString, Pietrzak_VDF.toString(_commit));
+        _commitsString = string.concat(
+            _commitsString,
+            Pietrzak_VDF.toString(_commit)
+        );
         userInfosAtRound[msg.sender][round] = UserAtRound(_count, true, false);
-        commitRevealValues[round][_count] = CommitRevealValue(_commit, 0, msg.sender); //index starts from 0, so _count -1
+        commitRevealValues[round][_count] = CommitRevealValue(
+            _commit,
+            0,
+            msg.sender
+        ); //index starts from 0, so _count -1
         commitsString = _commitsString;
         count = ++_count;
-        emit CommitC(msg.sender, _commit, _commitsString, _count, block.timestamp);
+        emit CommitC(
+            msg.sender,
+            _commit,
+            _commitsString,
+            _count,
+            block.timestamp
+        );
     }
 
     /**
@@ -144,8 +170,11 @@ contract CommitRecover {
         require(_user.committed, "NotCommittedParticipant");
         require(!_user.revealed, "AlreadyRevealed");
         require(
-            Pietrzak_VDF.powerModN(valuesAtRound[_round].g, _a, valuesAtRound[_round].n) ==
-                commitRevealValues[_round][_user.index].c,
+            Pietrzak_VDF.powerModN(
+                valuesAtRound[_round].g,
+                _a,
+                valuesAtRound[_round].n
+            ) == commitRevealValues[_round][_user.index].c,
             "ANotMatchCommit"
         );
         checkStage();
@@ -181,7 +210,9 @@ contract CommitRecover {
                         uint256(
                             keccak256(
                                 abi.encodePacked(
-                                    Pietrzak_VDF.toString(commitRevealValues[_round][i].c),
+                                    Pietrzak_VDF.toString(
+                                        commitRevealValues[_round][i].c
+                                    ),
                                     Pietrzak_VDF.toString(_bStar)
                                 )
                             )
@@ -228,7 +259,10 @@ contract CommitRecover {
                 _c,
                 uint256(
                     keccak256(
-                        abi.encodePacked(Pietrzak_VDF.toString(_c), Pietrzak_VDF.toString(_bStar))
+                        abi.encodePacked(
+                            Pietrzak_VDF.toString(_c),
+                            Pietrzak_VDF.toString(_bStar)
+                        )
                     )
                 ) % _n,
                 _n
@@ -297,12 +331,16 @@ contract CommitRecover {
      */
     function checkStage() public {
         uint256 _startTime = startTime;
-        if (stage == Stages.Commit && block.timestamp >= _startTime + commitDuration) {
+        if (
+            stage == Stages.Commit &&
+            block.timestamp >= _startTime + commitDuration
+        ) {
             if (count != 0) {
                 nextStage();
                 valuesAtRound[round].numOfParticipants = count;
-                uint256 _bStar = uint256(keccak256(abi.encodePacked(commitsString))) %
-                    valuesAtRound[round].n;
+                uint256 _bStar = uint256(
+                    keccak256(abi.encodePacked(commitsString))
+                ) % valuesAtRound[round].n;
                 valuesAtRound[round].bStar = _bStar;
             } else {
                 stage = Stages.Finished;

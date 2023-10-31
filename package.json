@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/usgeeus/Bicorn-RX/issues"
   },
-  "homepage": "https://github.com/usgeeus/Bicorn-RX#readme"
+  "homepage": "https://github.com/usgeeus/Bicorn-RX#readme",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
 }
