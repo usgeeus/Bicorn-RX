@@ -22,10 +22,11 @@ async function main() {
     const chainId = network.config.chainId
     let deployer: SignerWithAddress = await ethers.getSigner((await getNamedAccounts()).deployer)
     const testcases: TestCase[] = createTestCases(testCases)
-    let params = [120, 240, testcases[0].n, testcases[0].setupProofs]
+    let params = [120, 240, testcases[0].n,  deployer.address, testcases[0].setupProofs]
     const commitRecover = await ethers.getContractAt(
         abi,
         "0x2c46476e2B0DB71c4a6b3db460184f3B92f00b3F",
+        deployer
     )
     await commitRecover.start(...params, { gasLimit: 4000000 })
 }

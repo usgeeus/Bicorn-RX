@@ -5,6 +5,7 @@ import { network, deployments, ethers, getNamedAccounts } from "hardhat"
 import { developmentChains, networkConfig } from "../helper-hardhat-config"
 import { CommitRecover, CommitRecover__factory } from "../typechain-types"
 import { testCases, TestCase } from "./shared/testcases"
+import { CommitRecover as CommitRecoverType } from "../typechain-types"
 import {
     createTestCases,
     deployCommitRevealContract,
@@ -25,6 +26,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
           let commitDuration = networkConfig[chainId!].commitDuration
           let commitRevealDuration = networkConfig[chainId!].commitRevealDuration
           let _n: BigNumberish
+          let signers: SignerWithAddress[]
           before(async () => {
               deployer = await ethers.getSigner((await getNamedAccounts()).deployer)
               console.log(
@@ -36,10 +38,11 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
           })
           describe("deploy contract and check", () => {
               it("every testcase, deploy should pass", async () => {
+                  signers = await ethers.getSigners()
                   for (let i = 0; i < testcases.length; i++) {
                       console.log(i, i)
-                      let params = [commitDuration, commitRevealDuration, testcases[i].n, testcases[i].setupProofs]
-                      const { commitRecover, receipt } = await deployCommitRevealContract(params)
+                      let params = [commitDuration, commitRevealDuration, testcases[i].n, signers[0].address, testcases[i].setupProofs]
+                      const { commitRecover, receipt } = await deployCommitRevealContract(params, signers[0])
                       expect(commitRecover.target).to.properAddress
                       await initializedContractCorrectly(
                           commitRecover,
@@ -52,12 +55,10 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
           let firstTestCases: TestCase
           let firstrandomList: BigNumberish[] = []
           let firstcommitList: BigNumberish[] = []
-          let signers: SignerWithAddress[]
           const testCaseNum = 0
           describe("test 1 round", () => {
               describe("test commit, first testcase", () => {
                   before(async () => {
-                      signers = await ethers.getSigners()
                       firstTestCases = testcases[testCaseNum]
                       firstcommitList = firstTestCases.commitList
                       firstrandomList = firstTestCases.randomList
@@ -83,7 +84,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
                     //       commitRecover.reveal(firstrandomList[0]),
                     //   ).to.be.revertedWithCustomError(commitRecover, "FunctionInvalidAtThisStage")
                     await expect(
-                        commitRecover.reveal(firstrandomList[0]),
+                        commitRecover.reveal(firstrandomList[0], signers[0].address),
                     ).to.be.revertedWith("FunctionInvalidAtThisStage");
                   })
                   it("reveal should pass", async () => {
@@ -113,7 +114,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
                       }
                       const tx = await commitRecover.calculateOmega()
                       const receipt = await tx.wait()
-                      console.log("calculateOmega gas used", receipt.gasUsed.toString())
+                      console.log("calculateOmega gas used", receipt?.gasUsed.toString())
                       const omega = (await commitRecover.valuesAtRound(1)).omega
                       console.log(
                           omega,
@@ -135,7 +136,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers")
                       }
                       const tx = await commitRecover.recover(1, testcases[testCaseNum].recoveryProofs)
                       const receipt = await tx.wait()
-                      console.log("recover gas used", receipt.gasUsed.toString())
+                      console.log("recover gas used", receipt?.gasUsed.toString())
                       const omega = (await commitRecover.valuesAtRound(1)).omega
                       console.log(
                           omega,

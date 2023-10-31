@@ -1,9 +1,11 @@
 import { assert, expect } from "chai"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import { BigNumberish, Contract, ContractTransactionReceipt, Log } from "ethers"
-import { network, ethers } from "hardhat"
+import { network, ethers, getNamedAccounts } from "hardhat"
 import { VDFClaim, TestCase, testCases } from "./testcases"
 import { developmentChains, networkConfig } from "../../helper-hardhat-config"
+//commitrecover type
+import { CommitRecover as CommitRecoverType } from "../../typechain-types"
 
 export const createTestCases = (testcases: any[]) => {
     const result: TestCase[] = []
@@ -54,22 +56,23 @@ export const createTestCases = (testcases: any[]) => {
 }
 
 
-export const deployCommitRevealContract = async (params : any) => {
+export const deployCommitRevealContract = async (params : any, deployer:SignerWithAddress) => {
     let commitRecover = await ethers.deployContract("CommitRecover", [])
     commitRecover = await commitRecover.waitForDeployment()
     const tx = commitRecover.deploymentTransaction()
     await tx?.wait()
-    const startTx = await commitRecover.start(...params)
+    const startTx = await (commitRecover.connect(deployer) as CommitRecoverType).start(...params)
     const receipt = await startTx.wait()
     console.log("deploy gas used: ", receipt?.gasUsed?.toString())
     return { commitRecover, receipt }
 }
 
 export const deployFirstTestCaseCommitRevealContract = async () => {
+    const deployer = await ethers.getSigner((await getNamedAccounts()).deployer)
     const testcases = createTestCases(testCases)
     const testcaseNum = 0
-    let params = [networkConfig[network.config.chainId!].commitDuration, networkConfig[network.config.chainId!].commitRevealDuration, testcases[testcaseNum].n, testcases[testcaseNum].setupProofs]
-     const { commitRecover, receipt } = await deployCommitRevealContract(params)
+    let params = [networkConfig[network.config.chainId!].commitDuration, networkConfig[network.config.chainId!].commitRevealDuration, testcases[testcaseNum].n, deployer.address, testcases[testcaseNum].setupProofs]
+     const { commitRecover, receipt } = await deployCommitRevealContract(params, deployer)
     //get states
     const {
         stage,
@@ -107,7 +110,7 @@ export const deployFirstTestCaseCommitRevealContract = async () => {
 }
 
 export const getStatesAfterDeployment = async (
-    commitRevealContract: Contract,
+    commitRevealContract : any,
     receipt: ContractTransactionReceipt,
 ) => {
     // contract states
@@ -153,7 +156,7 @@ export const getStatesAfterDeployment = async (
 }
 
 export const initializedContractCorrectly = async (
-    commitRevealContract: Contract,
+    commitRevealContract: any,
     receipt: ContractTransactionReceipt,
     testcase: TestCase,
 ) => {
@@ -213,25 +216,25 @@ export const initializedContractCorrectly = async (
 }
 
 export const commit = async (
-    commitRecoverContract: Contract,
+    commitRecoverContract: any,
     signer: SignerWithAddress,
     commit: BigNumberish,
     i: number,
     round: number,
 ) => {
-    const tx = await (commitRecoverContract.connect(signer) as Contract).commit(commit)
+    const tx = await (commitRecoverContract.connect(signer) as Contract).commit(commit, signer.address)
     const receipt = await tx.wait()
     await commitCheck(commitRecoverContract, receipt, commit, signer, i, round)
 }
 
 export const reveal = async (
-    commitRecoverContract: Contract,
+    commitRecoverContract: any,
     signer: SignerWithAddress,
     random: BigNumberish,
     i: number,
     round: number,
 ) => {
-    const tx = await (commitRecoverContract.connect(signer) as Contract).reveal(random)
+    const tx = await (commitRecoverContract.connect(signer) as Contract).reveal(random, signer.address)
     const receipt = await tx.wait()
     await revealCheck(commitRecoverContract, receipt, random, signer, i, round)
 }
